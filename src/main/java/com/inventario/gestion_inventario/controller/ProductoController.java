@@ -1,33 +1,55 @@
 package com.inventario.gestion_inventario.controller;
 
+import com.inventario.gestion_inventario.dto.ProductoRequest;
+import com.inventario.gestion_inventario.dto.ProductoResponse;
+import com.inventario.gestion_inventario.model.Categoria;
 import com.inventario.gestion_inventario.model.Producto;
+import com.inventario.gestion_inventario.repository.CategoriaRepository;
 import com.inventario.gestion_inventario.repository.ProductoRepository;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/productos")
 public class ProductoController {
     private final ProductoRepository productoRepository;
+    private final CategoriaRepository categoriaRepository;
 
-    public ProductoController(ProductoRepository productoRepository) {
+    public ProductoController(ProductoRepository productoRepository, CategoriaRepository categoriaRepository) {
         this.productoRepository = productoRepository;
+        this.categoriaRepository=categoriaRepository;
     }
     @GetMapping
-    public List<Producto> obtenerTodos(){
-        return productoRepository.findAll();
+    public List<ProductoResponse> obtenerTodos(){
+        return  productoRepository.findAll().stream().map(p-> new ProductoResponse(
+                p.getId(),
+                p.getNombre(),
+                p.getPrecio(),
+                p.getCantidad(),
+                p.getCategoria() != null ? p.getCategoria().getNombre() : "Sin categoria"
+        )).toList();
     }
 
     @PostMapping
-    public Producto guardarProducto(@RequestBody Producto producto){
-        return productoRepository.save(producto);
+    public Producto crearProducto(@RequestBody ProductoRequest productoDTO){
+        if(productoDTO.categoriaId()==null){
+            throw new RuntimeException("El producto debe tener una categoria valida con un ID");
+        }
+        Categoria categoriaEncontrada = categoriaRepository.findById(productoDTO.categoriaId()).orElseThrow(()->
+                new RuntimeException("La categoria no existe"));
+        Producto nuevoProducto = new Producto();
+        nuevoProducto.setNombre(productoDTO.nombre());
+        nuevoProducto.setPrecio(productoDTO.precio());
+        nuevoProducto.setCantidad(productoDTO.cantidad());
+        nuevoProducto.setCategoria(categoriaEncontrada);
+
+        return productoRepository.save(nuevoProducto);
     }
     
     @GetMapping("/{id}")
-    public Optional<Producto> buscarPorId(@PathVariable Long id){
-        return productoRepository.findById(id);
+    public Producto buscarPorId(@PathVariable Long id){
+        return productoRepository.findById(id).orElseThrow();
     }
 
     @DeleteMapping("/{id}")
@@ -36,9 +58,21 @@ public class ProductoController {
     }
 
     @PutMapping("/{id}")
-    public Producto modificarProducto(@PathVariable Long id, @RequestBody Producto producto){
-        producto.setId(id);
-        return productoRepository.save(producto);
+    public ProductoResponse modificarProducto(@PathVariable Long id, @RequestBody ProductoRequest productoDTO){
+        Producto productoExistente = productoRepository.findById(id).orElseThrow(()-> new RuntimeException("No se encontro el producto con ID: "+id));
+        Categoria categoriaNueva = categoriaRepository.findById(productoDTO.categoriaId()).orElseThrow(()-> new RuntimeException("La categoria especifica no existe "));
+        productoExistente.setNombre(productoDTO.nombre());
+        productoExistente.setPrecio(productoDTO.precio());
+        productoExistente.setCantidad(productoDTO.cantidad());
+        productoExistente.setCategoria(categoriaNueva);
+        Producto productoActualizado = productoRepository.save(productoExistente);
+        return new ProductoResponse(
+                productoActualizado.getId(),
+                productoActualizado.getNombre(),
+                productoActualizado.getPrecio(),
+                productoActualizado.getCantidad(),
+                productoActualizado.getCategoria().getNombre()
+        );
     }
 
     @PostMapping("/{id}/vender")
@@ -61,5 +95,6 @@ public class ProductoController {
         productoAgregarStock.setCantidad(productoAgregarStock.getCantidad()+cantidad);
         return productoRepository.save(productoAgregarStock);
     }
+
 
 }
