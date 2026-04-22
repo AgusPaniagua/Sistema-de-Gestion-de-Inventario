@@ -6,10 +6,11 @@ import com.inventario.gestion_inventario.model.Categoria;
 import com.inventario.gestion_inventario.model.Producto;
 import com.inventario.gestion_inventario.repository.CategoriaRepository;
 import com.inventario.gestion_inventario.repository.ProductoRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
-import java.util.SimpleTimeZone;
 
 @RestController
 @RequestMapping("/productos")
@@ -35,10 +36,10 @@ public class ProductoController {
     @PostMapping
     public Producto crearProducto(@RequestBody ProductoRequest productoDTO){
         if(productoDTO.categoriaId()==null){
-            throw new RuntimeException("El producto debe tener una categoria valida con un ID");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Producto no creado");
         }
         Categoria categoriaEncontrada = categoriaRepository.findById(productoDTO.categoriaId()).orElseThrow(()->
-                new RuntimeException("La categoria no existe"));
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "Categoria no encontrada"));
         Producto nuevoProducto = new Producto();
         nuevoProducto.setNombre(productoDTO.nombre());
         nuevoProducto.setPrecio(productoDTO.precio());
@@ -50,18 +51,22 @@ public class ProductoController {
     
     @GetMapping("/{id}")
     public Producto buscarPorId(@PathVariable Long id){
-        return productoRepository.findById(id).orElseThrow();
+        return productoRepository.findById(id).orElseThrow(()->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "Prodcuto no encontrado"));
     }
 
     @DeleteMapping("/{id}")
     public void eliminarProducto(@PathVariable Long id){
+        if(!productoRepository.existsById(id)){
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Prodcuto no encontrado");
+        }
         productoRepository.deleteById(id);
     }
 
     @PutMapping("/{id}")
     public ProductoResponse modificarProducto(@PathVariable Long id, @RequestBody ProductoRequest productoDTO){
-        Producto productoExistente = productoRepository.findById(id).orElseThrow(()-> new RuntimeException("No se encontro el producto con ID: "+id));
-        Categoria categoriaNueva = categoriaRepository.findById(productoDTO.categoriaId()).orElseThrow(()-> new RuntimeException("La categoria especifica no existe "));
+        Producto productoExistente = productoRepository.findById(id).orElseThrow(()-> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado"));
+        Categoria categoriaNueva = categoriaRepository.findById(productoDTO.categoriaId()).orElseThrow(()-> new ResponseStatusException(HttpStatus.NOT_FOUND, "Categoria no encontrada"));
         productoExistente.setNombre(productoDTO.nombre());
         productoExistente.setPrecio(productoDTO.precio());
         productoExistente.setCantidad(productoDTO.cantidad());
@@ -78,7 +83,7 @@ public class ProductoController {
 
     @PostMapping("/{id}/vender")
     public Producto venderProducto(@PathVariable Long id, @RequestParam Integer cantidad){
-        Producto productoVender = productoRepository.findById(id).orElseThrow();
+        Producto productoVender = productoRepository.findById(id).orElseThrow(()-> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado"));
         if (productoVender.getCantidad()>=cantidad){
             productoVender.setCantidad(productoVender.getCantidad()-cantidad);
             return productoRepository.save(productoVender);
@@ -92,7 +97,8 @@ public class ProductoController {
         if(cantidad<=0){
             throw new RuntimeException("La cantidad a agregar debe ser mayor a cero");
         }
-        Producto productoAgregarStock = productoRepository.findById(id).orElseThrow();
+        Producto productoAgregarStock = productoRepository.findById(id).orElseThrow(()->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado"));
         productoAgregarStock.setCantidad(productoAgregarStock.getCantidad()+cantidad);
         return productoRepository.save(productoAgregarStock);
     }
@@ -121,14 +127,3 @@ public class ProductoController {
 
 
 }
-/*
-@GetMapping
-public List<ProductoResponse> obtenerTodos(){
-    return  productoRepository.findAll().stream().map(p-> new ProductoResponse(
-            p.getId(),
-            p.getNombre(),
-            p.getPrecio(),
-            p.getCantidad(),
-            p.getCategoria() != null ? p.getCategoria().getNombre() : "Sin categoria"
-    )).toList();
-}*/
