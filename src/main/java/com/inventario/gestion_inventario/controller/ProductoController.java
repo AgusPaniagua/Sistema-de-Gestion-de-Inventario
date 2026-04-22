@@ -9,6 +9,7 @@ import com.inventario.gestion_inventario.repository.ProductoRepository;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.SimpleTimeZone;
 
 @RestController
 @RequestMapping("/productos")
@@ -96,5 +97,38 @@ public class ProductoController {
         return productoRepository.save(productoAgregarStock);
     }
 
+    @GetMapping("/categoria/id/{id}")
+    public List<ProductoResponse> filtarPorIdDeCategoria(@PathVariable Long id){
+        return productoRepository.findByCategoriaId(id).stream().map(p-> new ProductoResponse(
+                p.getId(),
+                p.getNombre(),
+                p.getPrecio(),
+                p.getCantidad(),
+                p.getCategoria() != null ? p.getCategoria().getNombre() : "Sin categoria"
+        )).toList();
+    }
+
+    @GetMapping("/categoria/nombre/{nombre}")
+    public List<ProductoResponse> filtrarPorNombreDeCategoria(@PathVariable String nombre){
+        return productoRepository.findByCategoriaNombre(nombre).stream().map(p->new ProductoResponse(
+                p.getId(),
+                p.getNombre(),
+                p.getPrecio(),
+                p.getCantidad(),
+                p.getCategoria() != null ? p.getCategoria().getNombre() : "Sin categoria"
+        )).toList();
+    }
+
 
 }
+/*
+@GetMapping
+public List<ProductoResponse> obtenerTodos(){
+    return  productoRepository.findAll().stream().map(p-> new ProductoResponse(
+            p.getId(),
+            p.getNombre(),
+            p.getPrecio(),
+            p.getCantidad(),
+            p.getCategoria() != null ? p.getCategoria().getNombre() : "Sin categoria"
+    )).toList();
+}*/
